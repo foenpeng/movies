@@ -1,39 +1,52 @@
+#!/usr/bin/env python
 import sys
 import traceback
 import socket
 import csv
 import datetime
+from os.path import basename
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from pyvirtualdisplay import Display
 from email.mime.multipart import MIMEMultipart
+from email.mime.application import MIMEApplication
 from email.mime.text import MIMEText
 from smtplib import SMTP
 
-def send_email(subject, message_body):
-  destination = "peng.foen@gmail.com,shi.wei8805@gmail.com,thucjw@gmail.com"
+def send_email(subject, message_body, png_name):
+
   msg = MIMEMultipart()
+  destination = "foenpeng@uw.edu,shiwei@pdx.edu"
   msg['Subject'] = subject
   msg['From'] = 'victor@jcui.info'
   msg['To'] = destination
   body = MIMEText(message_body, 'html')
   msg.attach(body)
+  f = "_".join(png_name) + '.png'
+  with open(f, 'rb') as fil:
+    msg.attach(MIMEApplication(fil.read(),
+                Content_Disposition='attachment; filename="%s"' % basename(f),
+                Name=basename(f)))
+
   s = SMTP('localhost')
   s.sendmail('victor@jcui.info', destination.split(","), msg.as_string())
   s.quit()
 
-def find_one_dollar_fare(data):
+
+
+def find_one_dollar_fare(data, browser):
   print("checking bus fare")
   #wr = csv.writer(open(report_file, 'at'))
   #rd = csv.reader(open(report_file, 'rt'), delimiter=',')
 
-  report_file = '''/home/victor/foen/report.csv'''
+  report_file = '''./report.csv'''
 
-  with open(report_file, 'a') as csvfile:
-    rd = csv.reader(csvfile, delimiter=',')
-    wr = csv.writer(csvfile)
+  with open(report_file, 'a') as csvfile_w, open(report_file) as csvfile_r:
+
+    rd = csv.reader(csvfile_r, delimiter=',')
+    wr = csv.writer(csvfile_w)
 
     if data[0] == "S-P":
       WebDriverWait(browser, 30).until(EC.invisibility_of_element_located((By.ID, "pleaseWaitEE_backgroundElement")))
@@ -51,82 +64,87 @@ def find_one_dollar_fare(data):
       browser.find_element_by_id("ctl00_cphM_forwardRouteUC_lstDestination_repeater_ctl03_link").click()
 
     # choose dates
-    MonthList = ["January, 2016", "February, 2016","March, 2016","April, 2016","May, 2016","June, 2016",
-            "July, 2016","August, 2016","September, 2016","October, 2016","November, 2016","December, 2016"]
+   # MonthList = ["January, 2017", "February, 2017","March, 2017","April, 2017","May, 2017","June, 2017",
+    #        "July, 2017","August, 2017","September, 2017","October, 2017","November, 2017","December, 2017"]
 
+    MonthList = ["January", "February","March","April","May","June",
+            "July","August","September","October","November","December"]
     TargetMonth = int(data[1])
     WebDriverWait(browser, 30).until(EC.invisibility_of_element_located((By.ID, "pleaseWaitEE_backgroundElement")))
     browser.find_element_by_id("ctl00_cphM_forwardRouteUC_imageE").click()
     month = browser.find_element_by_xpath("//td[@class = 'title']")
-    CurrentMonth = MonthList.index(month.text) + 1
+    monthstr = month.text.rpartition(',')[0]
+    CurrentMonth = MonthList.index(monthstr) + 1
 
     while (TargetMonth != CurrentMonth):
-      if CurrentMonth < TargetMonth:
+      print(CurrentMonth)
+      if (CurrentMonth < TargetMonth) or (CurrentMonth ==12):
         browser.find_element_by_xpath("//table/tbody/tr[2]/td/div[2]/table/tbody/tr/td[2]/div/div/table/thead/tr[2]/td[4]/div").click()
       else:
         browser.find_element_by_xpath("//table/tbody/tr[2]/td/div[2]/table/tbody/tr/td[2]/div/div/table/thead/tr[2]/td[2]/div").click()
 
       month = browser.find_element_by_xpath("//td[@class = 'title']")
-      CurrentMonth = MonthList.index(month.text) + 1
+      monthstr = month.text.rpartition(',')[0]
+      CurrentMonth = MonthList.index(monthstr) + 1
 
     dollar_date = data[2]
     browser.find_element_by_xpath('//table/tbody/tr[2]/td/div[2]/table/tbody/tr/td[2]/div/div/table/tbody//td[text() = "%s"]'%dollar_date).click()
     WebDriverWait(browser, 30).until(EC.invisibility_of_element_located((By.ID, "pleaseWaitEE_backgroundElement")))
+
 
     # check fares for 1 dollar
     now = datetime.datetime.now()
     currentTime = now.strftime("%Y-%m-%d %H:%M")
 
     try:
+      browser.save_screenshot('_'.join(data) + '.png')
       one_dollar_elements = browser.find_elements_by_xpath("//td[@class = 'faresColumn0 faresColumnDollar']/..//td[@class = 'faresColumn1']")
-      report = []
-      for item in one_dollar_elements:
+      if len(one_dollar_elements) > 0:
+        report = []
+        for item in one_dollar_elements:
           report += [data[0], data[1], data[2], data[3], item.text]
-
-      report = "_".join(report)
-
-      count = 0
-      for row in rd:
-        if report == row[2]:
-          count += 1
-
-      if count < 3:
+        report = "_".join(report)
         wr.writerow([currentTime, "FOUND", report])
-        send_email("Good News!", report)
-
-    except Exception:
-      send_email("No $1 ticket @" + currentTime, "Please be patient for trip " + '_'.join(data))
-      wr.writerow([currentTime, "NOTFOUND"])
-      print("no one dollar fare at this time")
-
+        count = 0
+        for line in rd:
+          if report in line:
+            count += 1
+        if count < 2:
+          print([currentTime, "FOUND", report])
+          send_email("Good News!", report, data)
+      else:
+        # send_email("No $1 ticket @" + currentTime, "Please be patient for trip " + '_'.join(data), data)
+        wr.writerow([currentTime, '_'.join(data), "NOTFOUND"])
+        print([currentTime, '_'.join(data), "NOTFOUND"])
+    except Exception as e:
+      wr.writerow(str(e))
 
 if __name__ == "__main__":
   now = datetime.datetime.now()
   currentTime = now.strftime("%Y-%m-%d %H:%M")
   print("Running at " + currentTime)
 
-  try:
-    display = Display(visible=0, size=(1024, 768))
-    display.start()
+  display = Display(visible=0, size=(1024, 768))
+  display.start()
 
-    browser = webdriver.Firefox()
+  browser = webdriver.Firefox()
+
+  try:
     browser.get('https://www.boltbus.com')
-    print("browser get boltbus success")
+    print("browser get www.boltbus.com success")
 
     browser.find_element_by_name("ctl00$cphM$forwardRouteUC$lstRegion$textBox").click()
     browser.find_element_by_id("ctl00_cphM_forwardRouteUC_lstRegion_repeater_ctl02_link").click()
-
-    ticket_dates = csv.reader(open('/home/victor/foen/ticket_date.csv','rt'))
+    ticket_dates = csv.reader(open('./ticket_date.csv','rU'))
     trips = [item for item in ticket_dates]
 
     for trip in trips:
       print("Searching for $1 ticket of " + '_'.join(trip))
-      find_one_dollar_fare(trip)
-
-    browser.quit()
-    display.stop()
+      find_one_dollar_fare(trip, browser)
 
   except:
-    err = open('/home/victor/foen/err.txt', 'at')
+    err = open('err.txt', 'at')
     err.write("%s : \n %s \n" % (currentTime, traceback.format_exc()))
 
+  browser.quit()
+  display.stop()
