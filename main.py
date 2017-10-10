@@ -51,14 +51,14 @@ def find_one_dollar_fare(data, browser):
     if data[0] == "S-P":
       WebDriverWait(browser, 30).until(EC.invisibility_of_element_located((By.ID, "pleaseWaitEE_backgroundElement")))
       browser.find_element_by_id('ctl00_cphM_forwardRouteUC_lstOrigin_imageE').click()
-      browser.find_element_by_id("ctl00_cphM_forwardRouteUC_lstOrigin_repeater_ctl13_link").click()
+      browser.find_element_by_id("ctl00_cphM_forwardRouteUC_lstOrigin_repeater_ctl14_link").click()
       WebDriverWait(browser, 30).until(EC.invisibility_of_element_located((By.ID, "pleaseWaitEE_backgroundElement")))
       browser.find_element_by_id("ctl00_cphM_forwardRouteUC_lstDestination_imageE").click()
       browser.find_element_by_id("ctl00_cphM_forwardRouteUC_lstDestination_repeater_ctl03_link").click()
     else:
       WebDriverWait(browser, 30).until(EC.invisibility_of_element_located((By.ID, "pleaseWaitEE_backgroundElement")))
       browser.find_element_by_id('ctl00_cphM_forwardRouteUC_lstOrigin_imageE').click()
-      browser.find_element_by_id("ctl00_cphM_forwardRouteUC_lstOrigin_repeater_ctl10_link").click()
+      browser.find_element_by_id("ctl00_cphM_forwardRouteUC_lstOrigin_repeater_ctl11_link").click()
       WebDriverWait(browser, 30).until(EC.invisibility_of_element_located((By.ID, "pleaseWaitEE_backgroundElement")))
       browser.find_element_by_id("ctl00_cphM_forwardRouteUC_lstDestination_imageE").click()
       browser.find_element_by_id("ctl00_cphM_forwardRouteUC_lstDestination_repeater_ctl03_link").click()
